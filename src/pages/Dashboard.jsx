@@ -9,7 +9,7 @@ import Welcome, { tourSeen } from '../components/Welcome.jsx'
 const EMOJIS = ['👥', '🏖️', '🏠', '🍕', '⚽', '✈️', '🎉', '🚗', '🏕️', '💼']
 
 export default function Dashboard() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const nav = useNavigate()
   const [groups, setGroups] = useState(null)
   const [error, setError] = useState(null)
@@ -55,7 +55,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {groups && !hideChecklist && (() => {
+      {groups && !hideChecklist && user?.email !== import.meta.env.VITE_DEMO_EMAIL && (() => {
         const steps = [
           { done: groups.length > 0, label: 'Create or join a group', action: () => setShow('create') },
           { done: groups.some((x) => x.member_count > 1 && !x.name.endsWith('(sample)')), label: 'Invite a friend with the WhatsApp link', action: () => groups[0] && nav(`/g/${groups[0].id}`) },

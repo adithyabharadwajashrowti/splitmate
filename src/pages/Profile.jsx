@@ -72,7 +72,10 @@ export default function Profile() {
         <button className="btn primary" disabled={busy || isDemo}>{busy ? 'Saving…' : 'Save'}</button>
       </form>
       <p className="muted small">Signed in as {user?.email}</p>
-      <button className="btn danger-ghost" onClick={signOut}>Sign out</button>
+      <button className="btn danger-ghost" disabled={busy} onClick={async () => { setBusy(true); await signOut() }}>
+        {isDemo ? (busy ? 'Resetting demo…' : 'Sign out & reset demo') : 'Sign out'}
+      </button>
+      {isDemo && <p className="muted small">Signing out puts the demo trip back to how it started, so the next person gets a fresh demo.</p>}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { supabase } from './lib/supabase.js'
+import { supabase, callRpc } from './lib/supabase.js'
+import { resetDemoTour } from './components/Welcome.jsx'
 
 const AuthCtx = createContext(null)
 
@@ -30,7 +31,15 @@ export function AuthProvider({ children }) {
     user: session?.user ?? null,
     profile,
     refreshProfile: () => loadProfile(session?.user?.id),
-    signOut: () => supabase.auth.signOut(),
+    signOut: async () => {
+      // the shared demo account cleans up after itself so the next person gets a fresh Goa Trip
+      if (session?.user?.email && session.user.email === import.meta.env.VITE_DEMO_EMAIL) {
+        await callRpc('reset_demo')
+        resetDemoTour() // next person sees the guide from the start
+      }
+      return supabase.auth.signOut()
+    },
+    isDemo: !!session?.user?.email && session.user.email === import.meta.env.VITE_DEMO_EMAIL,
   }
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>
 }

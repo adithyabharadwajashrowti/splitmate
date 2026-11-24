@@ -1,12 +1,39 @@
 import { useState } from 'react'
+import { supabase } from '../lib/supabase.js'
 
-const KEY = 'splitmate_tour_v1'
+/**
+ * When does the welcome tour show?
+ *  - Demo account: every time someone signs in to it (cleared on sign-out).
+ *  - Real accounts: once, right after sign-up — remembered in the database so it
+ *    doesn't come back on another phone or laptop.
+ */
+const DEMO_KEY = 'splitmate_demo_tour_seen'
+const userKey = (id) => `splitmate_tour_done_${id}`
 
-export const tourSeen = () => {
-  try { return localStorage.getItem(KEY) === '1' } catch { return true }
+export function shouldShowTour({ user, profile, isDemo }) {
+  if (!user) return false
+  try {
+    if (isDemo) return sessionStorage.getItem(DEMO_KEY) !== '1'
+    if (localStorage.getItem(userKey(user.id)) === '1') return false
+  } catch { /* storage blocked */ }
+  if (!profile) return false // wait until the profile loads
+  return !profile.tour_done
 }
-export const markTourSeen = () => {
-  try { localStorage.setItem(KEY, '1') } catch { /* private mode */ }
+
+export async function markTourSeen({ user, isDemo, refreshProfile } = {}) {
+  try {
+    if (isDemo) { sessionStorage.setItem(DEMO_KEY, '1'); return }
+    if (user) localStorage.setItem(userKey(user.id), '1')
+  } catch { /* ignore */ }
+  if (user && !isDemo) {
+    await supabase.from('profiles').update({ tour_done: true }).eq('id', user.id)
+    refreshProfile?.()
+  }
+}
+
+/** Called on demo sign-out so the next person sees the tour from the start. */
+export function resetDemoTour() {
+  try { sessionStorage.removeItem(DEMO_KEY) } catch { /* ignore */ }
 }
 
 const STEPS = [
@@ -19,11 +46,11 @@ const STEPS = [
 ]
 
 /** First-run guided tour. Shown once; reopen anytime from the ? button. */
-export default function Welcome({ onClose, onSample, hasGroups }) {
+export default function Welcome({ onClose, onSample, hasGroups, onSeen }) {
   const [i, setI] = useState(0)
   const last = i === STEPS.length - 1
   const s = STEPS[i]
-  const close = () => { markTourSeen(); onClose() }
+  const close = () => { onSeen?.(); onClose() }
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
@@ -46,7 +73,7 @@ export default function Welcome({ onClose, onSample, hasGroups }) {
           ) : (
             <div className="stack-sm">
               {!hasGroups && onSample && (
-                <button className="btn primary" onClick={() => { markTourSeen(); onSample() }}>🏖️ Explore a sample trip</button>
+                <button className="btn primary" onClick={() => { onSeen?.(); onSample() }}>🏖️ Explore a sample trip</button>
               )}
               <button className={`btn ${hasGroups ? 'primary' : ''}`} onClick={close}>{hasGroups ? 'Let’s go' : 'Start with an empty account'}</button>
             </div>

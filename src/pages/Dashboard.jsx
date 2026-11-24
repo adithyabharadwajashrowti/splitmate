@@ -4,17 +4,24 @@ import { supabase, niceError, callRpc } from '../lib/supabase.js'
 import { formatINR } from '../lib/money.js'
 import { useAuth } from '../auth.jsx'
 import Modal from '../components/Modal.jsx'
-import Welcome, { tourSeen } from '../components/Welcome.jsx'
+import Welcome, { shouldShowTour, markTourSeen } from '../components/Welcome.jsx'
 
 const EMOJIS = ['👥', '🏖️', '🏠', '🍕', '⚽', '✈️', '🎉', '🚗', '🏕️', '💼']
 
 export default function Dashboard() {
-  const { profile, user } = useAuth()
+  const { profile, user, isDemo, refreshProfile } = useAuth()
   const nav = useNavigate()
   const [groups, setGroups] = useState(null)
   const [error, setError] = useState(null)
   const [show, setShow] = useState(null) // 'create' | 'join'
-  const [tour, setTour] = useState(() => !tourSeen())
+  const [tour, setTour] = useState(false)
+  const [tourChecked, setTourChecked] = useState(false)
+  useEffect(() => {
+    if (tourChecked || !user || (!profile && !isDemo)) return
+    setTour(shouldShowTour({ user, profile, isDemo }))
+    setTourChecked(true)
+  }, [user, profile, isDemo, tourChecked])
+  const seen = () => markTourSeen({ user, isDemo, refreshProfile })
   const [sampleBusy, setSampleBusy] = useState(false)
   const [hideChecklist, setHideChecklist] = useState(() => { try { return localStorage.getItem('splitmate_checklist_done') === '1' } catch { return false } })
 
@@ -116,7 +123,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {tour && groups !== null && <Welcome hasGroups={groups.length > 0} onSample={createSample} onClose={() => setTour(false)} />}
+      {tour && groups !== null && <Welcome hasGroups={groups.length > 0} onSample={isDemo ? undefined : createSample} onSeen={seen} onClose={() => setTour(false)} />}
       {show === 'create' && <CreateGroup onClose={() => setShow(null)} onDone={(id) => nav(`/g/${id}`)} />}
       {show === 'join' && <JoinGroup onClose={() => setShow(null)} onDone={(id) => nav(`/g/${id}`)} />}
     </div>

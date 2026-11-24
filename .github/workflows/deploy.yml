@@ -1,0 +1,54 @@
+name: Deploy SplitMate to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # lockfile was created on Windows; regenerate on Linux so native build deps (rollup/esbuild) install correctly
+      - run: rm -f package-lock.json && npm install --no-audit --no-fund
+      - run: npm test
+      - name: Build
+        run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+          # These values end up in the public JavaScript bundle anyway (the publishable key is
+          # designed to be public; Row Level Security protects the data). Override them with
+          # repository variables (Settings → Secrets and variables → Actions → Variables) if needed.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://iccjxfbjvlgdlopyjskb.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_yGIw3RYQHZ_oAW59a3CUYg_RcVAti85' }}
+          VITE_DEMO_EMAIL: ${{ vars.VITE_DEMO_EMAIL || 'rahul.demo@example.com' }}
+          VITE_DEMO_PASSWORD: ${{ vars.VITE_DEMO_PASSWORD || 'SplitMate@Demo1' }}
+      - name: SPA fallback (deep links like /g/123 work after refresh)
+        run: cp dist/index.html dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+        

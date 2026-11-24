@@ -119,6 +119,7 @@ export default function Group() {
         )}
       </section>
 
+      <LiveBillBanner groupId={g.group.id} />
       {!solo && <TripTracker g={g} me={user.id} onChanged={g.reload} />}
 
       {g.expenses.length > 0 && (
@@ -483,3 +484,23 @@ function Members({ g, me }) {
 }
 
 export const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+
+/** Shows any open 📲 live bill in this group so people can jump in and tap their dishes. */
+function LiveBillBanner({ groupId }) {
+  const [bills, setBills] = useState([])
+  useEffect(() => {
+    let alive = true
+    const load = () => supabase.from('live_bills').select('id, title, host, created_at').eq('group_id', groupId).eq('status', 'open')
+      .order('created_at', { ascending: false }).then(({ data }) => alive && setBills(data || []))
+    load()
+    const t = setInterval(load, 5000)
+    return () => { alive = false; clearInterval(t) }
+  }, [groupId])
+  if (!bills.length) return null
+  return bills.map((b) => (
+    <Link key={b.id} to={`/bill/${b.id}`} className="live-banner">
+      <span className="live-dot pulse" />
+      <span className="grow"><strong>Live bill: {b.title}</strong><small>Tap the dishes you had →</small></span>
+    </Link>
+  ))
+}

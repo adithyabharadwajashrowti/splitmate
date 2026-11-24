@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { niceError, callRpc } from '../lib/supabase.js'
 import { toPaise, paiseToInput, formatINR } from '../lib/money.js'
 import { computeSplits, computeItemized } from '../lib/splits.js'
@@ -11,7 +12,7 @@ import Avatar from './Avatar.jsx'
 import ItemizedEditor, { newItem, billFromState, stepProblem } from './ItemizedEditor.jsx'
 
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-const SPLIT_LABELS = { equal: 'Equally', exact: 'Exact ₹', percent: '%', shares: 'Shares' }
+const SPLIT_LABELS = { equal: 'Equally', nights: '🗓️ Nights', exact: 'Exact ₹', percent: '%', shares: 'Shares' }
 const STEPS = ['🧾 Items', '👆 Who had what', '✅ Review']
 
 /**
@@ -22,6 +23,7 @@ const STEPS = ['🧾 Items', '👆 Who had what', '✅ Review']
 export default function ExpenseForm({ g, me, expense, startMode, onClose, onSaved }) {
   const members = g.members
   const editing = !!expense
+  const nav = useNavigate()
   const name = (id) => (id === me ? 'You' : members.find((m) => m.id === id)?.name?.split(' ')[0] || '?')
 
   const [description, setDescription] = useState(expense?.description || '')
@@ -64,6 +66,9 @@ export default function ExpenseForm({ g, me, expense, startMode, onClose, onSave
   const [err, setErr] = useState(null)
   const isBill = type === 'itemized'
 
+  // each step starts at the top so the step bar is always visible
+  useEffect(() => { document.querySelector('.modal-body')?.scrollTo({ top: 0, behavior: 'smooth' }) }, [step, type])
+
   // ---------- compute live
   const calc = useMemo(() => {
     if (isBill && bill.host) {
@@ -85,9 +90,9 @@ export default function ExpenseForm({ g, me, expense, startMode, onClose, onSave
       const v = values[id]
       if (type === 'exact') vals[id] = toPaise(v || 0) || 0
       else if (type === 'percent') vals[id] = Number(v || 0)
-      else if (type === 'shares') vals[id] = v === undefined || v === '' ? 1 : Number(v)
+      else if (type === 'shares' || type === 'nights') vals[id] = v === undefined || v === '' ? 1 : Number(v)
     }
-    const r = computeSplits(type, total, ids, vals)
+    const r = computeSplits(type === 'nights' ? 'shares' : type, total, ids, vals)
     return { total, splits: r.splits, error: !amount ? 'Enter an amount' : Number.isNaN(total) ? 'Enter a valid amount' : r.error, items: null }
   }, [isBill, type, bill, amount, people, values, members, paidBy])
 
@@ -134,10 +139,10 @@ export default function ExpenseForm({ g, me, expense, startMode, onClose, onSave
       p_amount: calc.total,
       p_paid_by: paidBy,
       p_category: isBill && cat === 'other' ? 'food' : cat,
-      p_split_type: type,
+      p_split_type: type === 'nights' ? 'shares' : type,
       p_date: date,
       p_splits: calc.splits,
-      p_notes: notes.trim() || null,
+      p_notes: (type === 'nights' ? [`🗓️ split by nights: ${members.filter((m) => people.has(m.id)).map((m) => `${name(m.id)} ${values[m.id] || 1}`).join(', ')}`, notes.trim()].filter(Boolean).join(' · ') : notes.trim()) || null,
       p_expense_id: expense?.id || null,
       p_items: isBill ? calc.items : null,
     })
@@ -149,6 +154,21 @@ export default function ExpenseForm({ g, me, expense, startMode, onClose, onSave
       ? `Saved! Friends owe you ${formatINR(calc.total - mine)}`
       : `Saved! Your share is ${formatINR(mine)}`, isBill && bill.host ? '🎁' : '✅')
     onSaved()
+  }
+
+  // 📲 Live Table Mode: send the items to a live bill everyone can tap on their own phone
+  async function goLive() {
+    const b = billFromState(bill)
+    const items = b.items.filter((x) => x.amount_paise > 0).map((x, i) => ({ key: `i${i + 1}`, name: x.name, qty: x.qty || 1, amount_paise: x.amount_paise }))
+    setBusy(true)
+    const { data, error } = await callRpc('create_live_bill', {
+      p_group_id: g.group.id, p_title: description.trim() || 'Dinner', p_items: items,
+      p_extras: { tax_paise: b.tax_paise, service_paise: b.service_paise, tip_paise: b.tip_paise, discount_paise: b.discount_paise },
+    })
+    setBusy(false)
+    if (error) return setErr(niceError(error))
+    haptic(25)
+    nav(`/bill/${data}`)
   }
 
   const togglePerson = (id) => { haptic(); setPeople((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n }) }
@@ -177,6 +197,9 @@ export default function ExpenseForm({ g, me, expense, startMode, onClose, onSave
           <div className="row-between sticky-foot">
             {step > 1 ? <button type="button" className="btn" onClick={() => { setErr(null); setStep(step - 1) }}>← Back</button>
               : !editing ? <button type="button" className="link small" onClick={() => setType('equal')}>Quick add instead</button> : <span />}
+            {step === 1 && !editing && !bill.host && !problem && (
+              <button type="button" className="btn" disabled={busy} onClick={goLive} title="Everyone taps their own dishes on their phone">📲 Live</button>
+            )}
             {step < 3 ? (
               <button type="button" className="btn primary" disabled={!!problem} title={problem || ''}
                 onClick={() => { haptic(); setErr(null); setStep(step + 1) }}>
@@ -253,6 +276,11 @@ export default function ExpenseForm({ g, me, expense, startMode, onClose, onSave
           </div>
         </div>
 
+        {!editing && ['stay', 'travel', 'fun'].includes(cat) && type === 'equal' && people.size > 1 && (
+          <button type="button" className="nudge" onClick={() => { haptic(); setType('nights'); setMore(true) }}>
+            🗓️ Someone joined late? <strong>Split by nights</strong>
+          </button>
+        )}
         <button type="button" className="link small" onClick={() => setMore(!more)}>{more ? '− Fewer options' : '+ Uneven split, date, category, notes'}</button>
         {more && (
           <div className="stack card flat">
@@ -265,12 +293,13 @@ export default function ExpenseForm({ g, me, expense, startMode, onClose, onSave
               <div key={m.id} className="split-row">
                 <Avatar name={m.name} size={26} /><span className="grow">{name(m.id)}</span>
                 <input className="split-input" inputMode="decimal" value={values[m.id] ?? ''}
-                  placeholder={type === 'exact' ? '₹0' : type === 'percent' ? '%' : '1'}
+                  placeholder={type === 'exact' ? '₹0' : type === 'percent' ? '%' : type === 'nights' ? 'nights' : '1'}
                   onChange={(e) => setValues((v) => ({ ...v, [m.id]: e.target.value }))} />
                 <span className="split-share">{formatINR(shareOf(m.id))}</span>
               </div>
             ))}
             {type === 'shares' && <p className="muted small">1 = normal, 2 = had double, 0.5 = had half.</p>}
+            {type === 'nights' && <p className="muted small">How many nights (or days) was each person there? Joined late = fewer nights = smaller share.</p>}
             <div className="grid-2">
               <label>Date<input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} /></label>
               <label>Category

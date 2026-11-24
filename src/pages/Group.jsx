@@ -14,6 +14,7 @@ import DebtGraph from '../components/DebtGraph.jsx'
 import SpinWheel from '../components/SpinWheel.jsx'
 import Wrapped from '../components/Wrapped.jsx'
 import SplitScore from '../components/SplitScore.jsx'
+import TripTracker from '../components/TripTracker.jsx'
 import { BalanceTag } from './Dashboard.jsx'
 import { confetti, exportCsv, whatsappSummary, toast, haptic } from '../lib/fun.js'
 import { toPaise } from '../lib/money.js'
@@ -117,6 +118,8 @@ export default function Group() {
           <button className="link small" style={{ marginTop: 12 }} onClick={setBudget}>🎯 Set a budget</button>
         )}
       </section>
+
+      {!solo && <TripTracker g={g} me={user.id} onChanged={g.reload} />}
 
       {g.expenses.length > 0 && (
         <section className="fun-strip">

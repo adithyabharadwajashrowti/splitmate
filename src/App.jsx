@@ -6,6 +6,7 @@ import Group from './pages/Group.jsx'
 import Profile from './pages/Profile.jsx'
 import Join from './pages/Join.jsx'
 import Help from './pages/Help.jsx'
+import Share from './pages/Share.jsx'
 import Avatar from './components/Avatar.jsx'
 import Toaster from './components/Toaster.jsx'
 
@@ -47,6 +48,7 @@ export default function App() {
       <Route path="/g/:id" element={<RequireAuth><Shell><Group /></Shell></RequireAuth>} />
       <Route path="/profile" element={<RequireAuth><Shell><Profile /></Shell></RequireAuth>} />
       <Route path="/help" element={<RequireAuth><Shell><Help /></Shell></RequireAuth>} />
+      <Route path="/share" element={<RequireAuth><Shell><Share /></Shell></RequireAuth>} />
       <Route path="*" element={<Shell><NotFound /></Shell>} />
     </Routes>
   )

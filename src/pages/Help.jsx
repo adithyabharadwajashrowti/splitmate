@@ -41,6 +41,17 @@ const SECTIONS = [
     ],
   },
   {
+    icon: '📡', title: 'Trip Tracking',
+    items: [
+      ['What is it?', 'Turn it on when a trip starts. Everyone collects spends as they go, then splits them all at the end in one go.'],
+      ['Capture from SMS', 'Paste bank / UPI debit SMS (many at once). Amount, merchant and date are read automatically. Credits and OTPs are ignored.'],
+      ['Bank statement', 'Upload your statement as CSV. Only spends inside the trip dates are picked up.'],
+      ['Share from Messages (Android)', 'Install SplitMate (Chrome → Add to Home screen), then long-press a bank SMS → Share → SplitMate.'],
+      ['Wrap up', 'Swipe through your spends: “Just mine” stays private, “Split” becomes a group expense with the people you pick.'],
+      ['Privacy', 'Only you see your inbox. We store amount, merchant and time, never account numbers or the full SMS.'],
+    ],
+  },
+  {
     icon: '🎉', title: 'Fun stuff',
     items: [
       ['🎬 Trip Wrapped', 'Your trip as Spotify-Wrapped-style stories: total spent, biggest splurge, the group’s ATM…'],

@@ -5,5 +5,21 @@
   "display": "standalone",
   "background_color": "#0b0d12",
   "theme_color": "#d4ff3a",
-  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "scope": ".",
+  "share_target": {
+    "action": "share",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
